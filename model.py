@@ -142,6 +142,70 @@ def recommend_movies(movie_title: str, data: pandas.DataFrame, feature_data, mod
         })
     
     return recommendations
+def find_fallback_movies(input_movie_title, data, feature_data, budget_filter, genre_filter, n=6):
+    """
+    Fallback search: Find movies matching filters from the FULL dataset,
+    ranked by similarity to the input movie.
+    
+    This is used when the normal recommendation + filter flow returns no results.
+    """
+    # Get input movie index
+    match = data[data["title"].str.lower() == input_movie_title.lower()]
+    if len(match) == 0:
+        return []
+    
+    movie_idx = match.index[0]
+    input_vector = feature_data[movie_idx]
+    
+    # Start with all movies
+    mask = pandas.Series([True] * len(data), index=data.index)
+    
+    # Apply budget filter
+    if budget_filter == "Indie (<\\$30M)":
+        mask &= data['budget'] < 30_000_000
+    elif budget_filter == "Mid (\\$30M-\\$100M)":
+        mask &= (data['budget'] >= 30_000_000) & (data['budget'] < 100_000_000)
+    elif budget_filter == "Blockbuster (>\\$100M)":
+        mask &= data['budget'] >= 100_000_000
+    
+    # Apply genre filter
+    if genre_filter != "All Genres":
+        mask &= data['genres'].str.contains(genre_filter, na=False)
+    
+    # Exclude the input movie itself
+    mask &= data.index != movie_idx
+    
+    filtered_indices = data[mask].index.tolist()
+    
+    if not filtered_indices:
+        return []
+    
+    # Calculate similarity between input movie and ALL filtered movies
+    filtered_vectors = feature_data[filtered_indices]
+    similarities = sklearn.metrics.pairwise.cosine_similarity(input_vector, filtered_vectors).flatten()
+    
+    # Pair indices with similarities and sort
+    paired = list(zip(filtered_indices, similarities))
+    paired.sort(key=lambda x: x[1], reverse=True)
+    
+    # Build results for top N
+    results = []
+    for idx, sim in paired[:n]:
+        movie = data.loc[idx]
+        results.append({
+            'id': movie["id"],
+            'title': movie["title"],
+            'vote_average': movie["vote_average"],
+            'similarity': sim,
+            'genres': movie['genres'],
+            'budget': movie['budget'],
+            'keywords': movie['keywords'],
+            'overview': movie["overview"],
+            'countries': movie['production_countries'],
+            'poster_path': movie['poster_path']
+        })
+    
+    return results
 
 def get_movie_info(movie_title: str, data: pandas.DataFrame) -> dict:
     match = data[data["title"].str.lower() == movie_title.lower()]

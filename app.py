@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import requests
 from dotenv import load_dotenv
-from model import train_and_save, load_model, recommend_movies, get_movie_info
+from model import train_and_save, load_model, recommend_movies, find_fallback_movies, get_movie_info
 
 load_dotenv()
 
@@ -187,8 +187,10 @@ recommendations = recommend_movies(
     data=data,
     feature_data=feature_data,
     model=model,
-    n_recommendations=n_recommendations + 10  # Get extras in case we filter some out
+    n_recommendations=n_recommendations + 20  # Get extras in case we filter some out
 )
+
+fallback_used = False
 
 if recommendations:
     # Apply budget filter
@@ -200,16 +202,28 @@ if recommendations:
         recommendations = [r for r in recommendations if r['budget'] >= 100_000_000]
     
     if genre_filter != "All Genres":
-        for genre in genre_set:
-            if genre_filter == genre:
-                recommendations = [r for r in recommendations if genre in r['genres']]
+        recommendations = [r for r in recommendations if genre_filter in r['genres']]
 
+    if not recommendations and (budget_filter != "All Movies" or genre_filter != "All Genres"):
+        recommendations = find_fallback_movies(
+            input_movie_title=selected_movie,
+            data=data,
+            feature_data=feature_data,
+            budget_filter=budget_filter,
+            genre_filter=genre_filter,
+            n=n_recommendations
+        )
+        fallback_used = True
     # Limit to requested number
     recommendations = recommendations[:n_recommendations]
     
     if not recommendations:
         st.warning("No movies found matching your filters. Expand your tastes!")
     else:
+        # Show a helpful message if fallback was used
+        if fallback_used:
+            st.info(f"No top similar movies matched your filters. Showing the most similar {genre_filter} movies instead:")
+        
         # Display in a grid (3 columns)
         cols = st.columns(3)
         
