@@ -6,7 +6,7 @@ import joblib
 
 def load_movie_dataset(dataset_path: str = "movie_dataset.csv") -> pandas.DataFrame:
     data = pandas.read_csv(dataset_path)
-    key_cols = ['title', 'genres', 'overview', 'keywords', 'runtime', 'budget', 'poster_path', 'production_countries', 'production_companies']
+    key_cols = ['id','title','vote_average', 'genres', 'overview', 'keywords', 'runtime', 'budget', 'poster_path', 'production_countries', 'production_companies']
     data = data[key_cols]
     data = data[
         (data['budget'] > 100_000) &  
@@ -18,7 +18,7 @@ def load_movie_dataset(dataset_path: str = "movie_dataset.csv") -> pandas.DataFr
     
 def preprocess_movie_data(data: pandas.DataFrame):
     genre_lists = data['genres'].fillna('').apply(
-    lambda x: [g.strip() for g in x.split(',') if g.strip()]
+        lambda x: [g.strip() for g in x.split(',') if g.strip()]
     )
     country_lists = data['production_countries'].fillna('').apply(
         lambda x: [g.strip() for g in x.split(',') if g.strip()]
@@ -37,7 +37,7 @@ def preprocess_movie_data(data: pandas.DataFrame):
     keyword_encoder = sklearn.feature_extraction.text.TfidfVectorizer()
     keyword_data = keyword_encoder.fit_transform(data['keywords'].fillna(''))
 
-    numeric_data = data[['runtime', 'budget']].copy()
+    numeric_data = data[['runtime', 'budget', 'vote_average']].copy()
 
     for col in ['runtime', 'budget']:
         median_val = numeric_data[col].median()
@@ -67,10 +67,10 @@ def preprocess_movie_data(data: pandas.DataFrame):
 def combine_movie_features(
     encoded_data: dict, 
     weights: dict = {
-        "genres": 2.0,
+        "genres": 1.5,
         "country": 1.1,
-        "keyword": 1.5,
-        "overview": 1.3,
+        "keyword": 1.3,
+        "overview": 1.5,
         "numeric": 1.2,
     }) -> scipy.sparse.hstack:
     weighted_genres = scipy.sparse.csr_matrix(encoded_data["genres"] * weights["genres"])
@@ -129,7 +129,9 @@ def recommend_movies(movie_title: str, data: pandas.DataFrame, feature_data, mod
         similarity = 1 - distance
         
         recommendations.append({
+            'id': rec_movie["id"],
             'title': rec_movie["title"],
+            "vote_average":rec_movie["vote_average"],
             'similarity': similarity,
             'genres': rec_movie['genres'],
             'budget': rec_movie['budget'],
@@ -148,8 +150,10 @@ def get_movie_info(movie_title: str, data: pandas.DataFrame) -> dict:
     
     movie = match.iloc[0]
     return {
+        'id': movie["id"],
         'title': movie['title'],
         'genres': movie['genres'],
+        "vote_average": movie["vote_average"],
         'budget': movie['budget'],
         'overview': movie['overview'],
         'poster_path': movie['poster_path'],
