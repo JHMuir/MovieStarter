@@ -7,7 +7,7 @@ from model import train_and_save, load_model, recommend_movies, find_fallback_mo
 
 load_dotenv()
 
-TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+TMDB_API_KEY = "2d930512cf126f38b28d91e9cbaed757"
 TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w92"
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
 
