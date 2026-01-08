@@ -1,0 +1,4 @@
+sklearn
+streamlit
+python-dotenv
+pandas
